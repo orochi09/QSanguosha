@@ -595,6 +595,83 @@ LuaLianyu = sgs.CreateTriggerSkill{
 
 }
 
+LuaJiushu = sgs.CreateTriggerSkill{
+	name = "jiushu",
+	frequency = sgs.Skill_NotFrequent,
+	events = {sgs.AskForPeaches},
+	on_trigger = function(self, event, player, data)
+		local room = player:getRoom()
+		local who = room:getCurrentDyingPlayer()
+		local rec = sgs.RecoverStruct()
+		local mhp = sgs.QVariant()
+		if not player:hasSkill(self:objectName()) then return end
+		if not room:askForSkillInvoke(player, self:objectName()) then return end
+		if not who then return end
+		local choice = room:askForChoice(player, self:objectName(), "diaoxue+rengpai")
+		if choice == "diaoxue" then
+			room:loseHp(player)
+		else
+			room:askForDiscard(player, self:objectName(), 2, 2, false, true)
+		end
+		rec.who = player
+		rec.card = nil
+		room:recover(who, rec)
+		if player:hasSkill("poxiao") then
+			local count = player:getMaxHp()
+			mhp:setValue(count + 1)
+			room:setPlayerProperty(player, "maxhp", mhp)
+		end
+		return false
+	end
+}
+
+
+LuaPoxiao = sgs.CreateTriggerSkill{
+	name = "poxiao",
+	frequency = sgs.Skill_Compulsory,
+	events = {sgs.CardUsed},
+	on_trigger = function(self, event, player, data)
+		local use = data:toCardUse()
+		local card = use.card
+		local room = player:getRoom()
+		if card:isKindOf("Peach") then
+			local count = player:getMaxHp()
+			local mhp = sgs.QVariant()
+			if count < room:getAlivePlayers():length() then
+				mhp:setValue(count + 1)
+				room:setPlayerProperty(player, "maxhp", mhp)
+			end
+		end
+--[[		elseif count == room:getAlivePlayers():length() then
+			room:detachSkillFromPlayer(player, "poxiao")
+		end]]--
+		return false
+	end
+
+}
+
+
+LuaPoxiaoX = sgs.CreateTriggerSkill{
+	name = "#poxiaoX",
+	frequency = sgs.Skill_Compulsory,
+	events = {sgs.MaxUpChanged},
+	on_trigger = function(self, event, player, data)
+		local room = player:getRoom()
+		if event == sgs.MaxUpChanged then 
+			local count = Player:getMaxHp()
+			if count >= room:getAlivePlayers():length() then
+				if player:hasSkill("poxiao") then
+					room:detachSkillFromPlayer(player, "poxiao")
+				end
+			end
+		end
+		return false
+	end
+
+}
+
+
+
 
 
 
@@ -615,6 +692,9 @@ jg:addSkill(LuaXuefeiY)
 jg:addSkill(LuaLianyu)
 jg:addSkill(LuaLianyuStart)
 bill:addSkill(LuaJiaoxie)
+helen:addSkill(LuaJiushu)
+helen:addSkill(LuaPoxiao)
+helen:addSkill(LuaPoxiaoX)
 
 
 
