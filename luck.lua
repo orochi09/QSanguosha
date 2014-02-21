@@ -86,6 +86,14 @@ sgs.LoadTranslationTable{
 	[":lianyu"] = "当你处于濒死状态时，你可以减5点体力上限并摸两张牌，若如此做，视为你对自己使用一张【桃】，并失去技能“血沸”.",
 	["@lianyubiaoji"] = "炼狱标记",
 	["@xianjibiaoji"] = "献祭标记",
+	["jiushu"] = "救赎",
+	[":jiushu"] = "当一名角色处于濒死状态时，你可以弃两张牌或失去一点体力，视为对该角色使用一张【桃】.",
+	["poxiao"] = "破晓",
+	[":poxiao"] = "你每使用一张【桃】，你的体力上限+1.当你体力上限不小于场上玩家数量时，你失去此技能.",
+	["diaoxue"] = "失去一点体力",
+	["rengpai"] = "弃两张牌",
+
+
 
 
 
@@ -250,6 +258,7 @@ LuaXianjiCard = sgs.CreateSkillCard{
 		thread:trigger(sgs.CardFinished, room, diaochan, data)
 	end ,
 	on_use = function(self, room, source, targets)
+		room:removePlayerMark(source, "@xianjibiaoji")
 		local from = targets[1]
 		local tos = targets
 		table.removeOne(tos,from)
@@ -296,7 +305,6 @@ LuaXianji = sgs.CreateTriggerSkill{
 	on_trigger = function(self, event, player, data)
 		local room = player:getRoom()
 		room:askForUseCard(player, "@@LuaXianji", "@LuaXianji")
-		player:loseMark("@xianjibiaoji")
 		return false
 	end,
 	can_trigger = function(self, target)
@@ -607,11 +615,15 @@ LuaJiushu = sgs.CreateTriggerSkill{
 		if not player:hasSkill(self:objectName()) then return end
 		if not room:askForSkillInvoke(player, self:objectName()) then return end
 		if not who then return end
-		local choice = room:askForChoice(player, self:objectName(), "diaoxue+rengpai")
-		if choice == "diaoxue" then
+		if (player:getHandcardNum() + player:getEquips():length()) < 2 then
 			room:loseHp(player)
 		else
-			room:askForDiscard(player, self:objectName(), 2, 2, false, true)
+			local choice = room:askForChoice(player, self:objectName(), "diaoxue+rengpai")
+			if choice == "diaoxue" then
+				room:loseHp(player)
+			else
+				room:askForDiscard(player, self:objectName(), 2, 2, false, true)
+			end
 		end
 		rec.who = player
 		rec.card = nil
@@ -629,17 +641,28 @@ LuaJiushu = sgs.CreateTriggerSkill{
 LuaPoxiao = sgs.CreateTriggerSkill{
 	name = "poxiao",
 	frequency = sgs.Skill_Compulsory,
-	events = {sgs.CardUsed},
+	events = {sgs.CardUsed, sgs.MaxUpChanged, sgs.GameStart},
 	on_trigger = function(self, event, player, data)
 		local use = data:toCardUse()
 		local card = use.card
 		local room = player:getRoom()
-		if card:isKindOf("Peach") then
-			local count = player:getMaxHp()
-			local mhp = sgs.QVariant()
-			if count < room:getAlivePlayers():length() then
-				mhp:setValue(count + 1)
-				room:setPlayerProperty(player, "maxhp", mhp)
+		local count1 = player:getMaxHp()
+		if event == sgs.GameStart then
+			if count1 >= room:getAlivePlayers():length() then
+				room:detachSkillFromPlayer(player, "poxiao")
+			end
+		elseif event == sgs.CardUsed then
+			if card:isKindOf("Peach") then
+				local count = player:getMaxHp()
+				local mhp = sgs.QVariant()
+				if count < room:getAlivePlayers():length() then
+					mhp:setValue(count + 1)
+					room:setPlayerProperty(player, "maxhp", mhp)
+				end
+			end
+		elseif event == sgs.MaxUpChanged then
+			if player:getMaxHp() >= room:getAlivePlayers():length() then
+				room:detachSkillFromPlayer(player, "poxiao")
 			end
 		end
 --[[		elseif count == room:getAlivePlayers():length() then
@@ -651,7 +674,7 @@ LuaPoxiao = sgs.CreateTriggerSkill{
 }
 
 
-LuaPoxiaoX = sgs.CreateTriggerSkill{
+--[[LuaPoxiaoX = sgs.CreateTriggerSkill{
 	name = "#poxiaoX",
 	frequency = sgs.Skill_Compulsory,
 	events = {sgs.MaxUpChanged},
@@ -668,7 +691,9 @@ LuaPoxiaoX = sgs.CreateTriggerSkill{
 		return false
 	end
 
-}
+}]]--
+
+
 
 
 
@@ -694,7 +719,7 @@ jg:addSkill(LuaLianyuStart)
 bill:addSkill(LuaJiaoxie)
 helen:addSkill(LuaJiushu)
 helen:addSkill(LuaPoxiao)
-helen:addSkill(LuaPoxiaoX)
+--helen:addSkill(LuaPoxiaoX)
 
 
 
